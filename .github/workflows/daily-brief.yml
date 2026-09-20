@@ -1,0 +1,46 @@
+name: Daily AI news brief
+
+on:
+  schedule:
+    - cron: '0 4 * * 1-5'   # 07:00 Cyprus in summer (EEST, UTC+3)
+    - cron: '0 5 * * 1-5'   # 07:00 Cyprus in winter (EET, UTC+2)
+  workflow_dispatch: {}       # lets Nick trigger a manual test run
+
+permissions:
+  contents: write
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check the actual Cyprus local time
+        id: gate
+        run: python scripts/time_gate.py
+
+      - name: Install dependencies
+        if: steps.gate.outputs.should_run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Configure git identity for the token-commit step
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          git config user.name "ai-news-pipeline bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Run the daily brief
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
+          MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          STATE_ENCRYPTION_KEY: ${{ secrets.STATE_ENCRYPTION_KEY }}
+          PUBLIC_REPO_PUSH_TOKEN: ${{ secrets.PUBLIC_REPO_PUSH_TOKEN }}
+        run: python scripts/run_daily_brief.py

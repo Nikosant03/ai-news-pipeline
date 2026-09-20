@@ -1,0 +1,62 @@
+from unittest.mock import patch, MagicMock
+from scripts.run_daily_brief import run
+
+
+def _fake_render_audio(text, output_path, voice, synthesizer=None):
+    """The real function writes a file; mocks that don't would leave
+    audio_path.exists() False, silently skipping the whole publish branch below."""
+    output_path.write_bytes(b"fake mp3 bytes")
+
+
+def test_run_returns_zero_when_everything_succeeds(monkeypatch):
+    monkeypatch.setenv("PUBLIC_REPO_PUSH_TOKEN", "fake-pat")
+    with patch("scripts.run_daily_brief.token_state.refresh_and_persist_token", return_value="access-token"), \
+         patch("scripts.run_daily_brief.generate_brief.generate_brief", return_value={
+             "brief_md": "# Brief", "brief_json": "{}", "audio_txt": "spoken text"
+         }), \
+         patch("scripts.run_daily_brief.render_audio.render_audio", side_effect=_fake_render_audio), \
+         patch("scripts.run_daily_brief.onedrive.upload_file", return_value={"id": "f1"}), \
+         patch("scripts.run_daily_brief.mail_folder.find_folder_id", return_value="folder-1"), \
+         patch("scripts.run_daily_brief.mail_folder.post_message", return_value={"id": "m1"}), \
+         patch("scripts.run_daily_brief.publish_release.publish_episode", return_value=[]), \
+         patch("scripts.run_daily_brief.publish_feed.build_feed_xml", return_value="<rss></rss>"), \
+         patch("scripts.run_daily_brief.publish_feed.clone_repo") as mock_clone, \
+         patch("scripts.run_daily_brief.publish_feed.push_feed") as mock_push:
+        exit_code = run(today="2026-09-20")
+    assert exit_code == 0
+    mock_clone.assert_called_once()
+    mock_push.assert_called_once()
+
+
+def test_run_returns_nonzero_when_a_component_fails_but_still_posts_banner():
+    with patch("scripts.run_daily_brief.token_state.refresh_and_persist_token", return_value="access-token"), \
+         patch("scripts.run_daily_brief.generate_brief.generate_brief", return_value={
+             "brief_md": "# Brief", "brief_json": "{}", "audio_txt": "spoken text"
+         }), \
+         patch("scripts.run_daily_brief.render_audio.render_audio", side_effect=RuntimeError("tts down")), \
+         patch("scripts.run_daily_brief.onedrive.upload_file", return_value={"id": "f1"}), \
+         patch("scripts.run_daily_brief.mail_folder.find_folder_id", return_value="folder-1"), \
+         patch("scripts.run_daily_brief.mail_folder.post_message", return_value={"id": "m1"}) as mock_post, \
+         patch("scripts.run_daily_brief.publish_release.publish_episode", return_value=[]), \
+         patch("scripts.run_daily_brief.publish_feed.build_feed_xml", return_value="<rss></rss>"), \
+         patch("scripts.run_daily_brief.publish_feed.push_feed"):
+        exit_code = run(today="2026-09-20")
+    assert exit_code != 0
+    # post_message's signature is (folder_id, subject, body, token=...), so the
+    # body is the third positional arg (index 2), not the second (index 1,
+    # which is the subject line "AI Brief — <date>" and never contains the
+    # failure text being asserted here).
+    posted_body = mock_post.call_args[0][2]
+    assert "tts down" in posted_body or "⚠" in posted_body
+
+
+def test_run_stops_immediately_when_token_persist_fails():
+    from scripts.token_state import TokenPersistError
+
+    with patch(
+        "scripts.run_daily_brief.token_state.refresh_and_persist_token",
+        side_effect=TokenPersistError("could not persist"),
+    ), patch("scripts.run_daily_brief.generate_brief.generate_brief") as mock_generate:
+        exit_code = run(today="2026-09-20")
+    assert exit_code != 0
+    mock_generate.assert_not_called()
