@@ -1,0 +1,4 @@
+anthropic>=0.68
+cryptography>=43
+edge-tts>=6.1
+pytest>=8
