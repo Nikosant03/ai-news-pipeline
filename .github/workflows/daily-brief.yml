@@ -43,4 +43,4 @@ jobs:
           MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           STATE_ENCRYPTION_KEY: ${{ secrets.STATE_ENCRYPTION_KEY }}
           PUBLIC_REPO_PUSH_TOKEN: ${{ secrets.PUBLIC_REPO_PUSH_TOKEN }}
-        run: python scripts/run_daily_brief.py
+        run: python -m scripts.run_daily_brief
