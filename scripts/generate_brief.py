@@ -35,12 +35,40 @@ def _continuity_text(previous_json: str | None) -> str:
     )
 
 
+MARKER_MD = "===BRIEF_MD==="
+MARKER_JSON = "===BRIEF_JSON==="
+MARKER_AUDIO = "===AUDIO_TXT==="
+
+
 def parse_three_files(raw_text: str) -> dict:
-    parts = raw_text.split("===BRIEF_JSON===")
-    brief_md = parts[0].split("===BRIEF_MD===", 1)[1]
-    rest = parts[1].split("===AUDIO_TXT===")
-    brief_json = rest[0]
-    audio_txt = rest[1]
+    """Split the model's single response into its three constituent files.
+
+    Raises RuntimeError (never a bare IndexError) if a marker is missing,
+    duplicated, or out of order — this feeds an unattended daily pipeline, so a
+    malformed response must fail loudly rather than silently drop content.
+    """
+    for marker in (MARKER_MD, MARKER_JSON, MARKER_AUDIO):
+        count = raw_text.count(marker)
+        if count != 1:
+            raise RuntimeError(
+                f"Expected marker '{marker}' exactly once in the response, "
+                f"found {count} times"
+            )
+
+    md_pos = raw_text.index(MARKER_MD)
+    json_pos = raw_text.index(MARKER_JSON)
+    audio_pos = raw_text.index(MARKER_AUDIO)
+
+    if not (md_pos < json_pos < audio_pos):
+        raise RuntimeError(
+            "Markers found out of expected order — expected "
+            f"{MARKER_MD} before {MARKER_JSON} before {MARKER_AUDIO}"
+        )
+
+    brief_md = raw_text[md_pos + len(MARKER_MD):json_pos]
+    brief_json = raw_text[json_pos + len(MARKER_JSON):audio_pos]
+    audio_txt = raw_text[audio_pos + len(MARKER_AUDIO):]
+
     return {
         "brief_md": brief_md.strip(),
         "brief_json": brief_json.strip(),

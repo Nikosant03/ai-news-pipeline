@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import MagicMock
 from scripts.generate_brief import generate_brief, parse_three_files
 
@@ -12,6 +13,28 @@ def test_parse_three_files_splits_on_markers():
     assert result["brief_md"].strip() == "# Brief\ncontent"
     assert result["brief_json"].strip() == '{"date": "2026-09-20"}'
     assert result["audio_txt"].strip() == "Spoken text here."
+
+
+def test_parse_three_files_raises_on_missing_marker():
+    # ===BRIEF_JSON=== never appears — a truncated or malformed response.
+    raw = (
+        "===BRIEF_MD===\n# Brief\ncontent\n"
+        "===AUDIO_TXT===\nSpoken text here.\n"
+    )
+    with pytest.raises(RuntimeError, match="BRIEF_JSON"):
+        parse_three_files(raw)
+
+
+def test_parse_three_files_raises_on_duplicated_marker():
+    # ===BRIEF_JSON=== appears twice — e.g. echoed from the instructions or
+    # quoted inside a news story. Must not silently drop content.
+    raw = (
+        "===BRIEF_MD===\n# Brief\ncontent ===BRIEF_JSON=== mentioned inline\n"
+        "===BRIEF_JSON===\n{\"date\": \"2026-09-20\"}\n"
+        "===AUDIO_TXT===\nSpoken text here.\n"
+    )
+    with pytest.raises(RuntimeError, match="BRIEF_JSON"):
+        parse_three_files(raw)
 
 
 def test_generate_brief_calls_api_with_web_search_tool():
