@@ -1,31 +1,57 @@
-"""The daily entrypoint. Ordering is not arbitrary: the token refresh+commit is
-first and unconditional (design spec §6); everything after it is wrapped so one
-component's failure doesn't stop the others, and is reported two ways — a banner
-on the mail message if it's still being built, and a non-zero exit code always."""
+"""The daily entrypoint. Reads a brief the caller has ALREADY written to
+output/ (see below) rather than generating one itself — the ai-news-pipeline
+routine writes those files directly, using its own web-research and Write
+tools, before invoking this script; nothing here calls the Anthropic API,
+deliberately (see decisions/log.md, 2026-09-20 — no API key, ever).
+
+Ordering is not arbitrary: the token refresh+commit is first and
+unconditional (design spec §6); everything after it is wrapped so one
+component's failure doesn't stop the others, and is reported two ways — a
+banner on the mail message if it's still being built, and a non-zero exit
+code always."""
 
 from __future__ import annotations
 
 import os
 import sys
-import tempfile
 from datetime import date
 from pathlib import Path
 
-from scripts import generate_brief, publish_feed, publish_release, render_audio, token_state
+from scripts import publish_feed, publish_release, render_audio, token_state
 from scripts.graph import mail_folder, onedrive
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_REPO = "Nikosant03/daily-ai-brief-feed"
-# tempfile.gettempdir() resolves to /tmp on the ubuntu-latest GH Actions runner —
-# identical to a hardcoded "/tmp" there — but also works on a Windows dev machine,
-# where a bare "/tmp" is not a real path.
-PUBLIC_REPO_CLONE_PATH = Path(tempfile.gettempdir()) / "daily-ai-brief-feed"
+OUTPUT_DIR = REPO_ROOT / "output"
+PUBLIC_REPO_CLONE_PATH = REPO_ROOT.parent / "daily-ai-brief-feed-clone"
 MAIL_FOLDER_NAME = "DAILY_AI_NEWS"
 ONEDRIVE_ROOT = "/DAILY_AI_NEWS"
 
 
-def run(today: str | None = None) -> int:
+def _read_brief(output_dir: Path) -> dict:
+    """Read the three files the routine already wrote to output/. Raises with
+    a clear message naming which file is missing, rather than a bare
+    FileNotFoundError, if the routine's writing step didn't run or failed."""
+    missing = [
+        name
+        for name in ("brief.md", "brief.json", "audio.txt")
+        if not (output_dir / name).exists()
+    ]
+    if missing:
+        raise RuntimeError(
+            f"output/ is missing {', '.join(missing)} — the routine must write "
+            "all three files before running this script"
+        )
+    return {
+        "brief_md": (output_dir / "brief.md").read_text(encoding="utf-8"),
+        "brief_json": (output_dir / "brief.json").read_text(encoding="utf-8"),
+        "audio_txt": (output_dir / "audio.txt").read_text(encoding="utf-8"),
+    }
+
+
+def run(today: str | None = None, output_dir: Path | None = None) -> int:
     today = today or date.today().isoformat()
+    output_dir = output_dir or OUTPUT_DIR
     failures: list[str] = []
 
     try:
@@ -39,17 +65,12 @@ def run(today: str | None = None) -> int:
         return 1
 
     try:
-        brief = generate_brief.generate_brief(
-            system_prompt=(REPO_ROOT / "prompts" / "system-prompt.md").read_text(encoding="utf-8"),
-            today=today,
-            previous_json=None,  # Task 16 follow-up: read yesterday's JSON via onedrive.py
-            model=os.environ.get("ANTHROPIC_MODEL"),  # unset -> generate_brief's own default
-        )
+        brief = _read_brief(output_dir)
     except Exception as exc:
-        print(f"FATAL: brief generation failed: {exc}", file=sys.stderr)
+        print(f"FATAL: reading the written brief failed: {exc}", file=sys.stderr)
         return 1
 
-    audio_path = Path(tempfile.gettempdir()) / f"{today}.mp3"
+    audio_path = output_dir / f"{today}-audio.mp3"
     try:
         voice = os.environ.get("EDGE_TTS_VOICE", "en-US-AndrewNeural")
         render_audio.render_audio(brief["audio_txt"], audio_path, voice=voice)
