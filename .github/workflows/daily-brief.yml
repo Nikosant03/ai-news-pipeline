@@ -26,17 +26,17 @@ jobs:
         run: python scripts/time_gate.py
 
       - name: Install dependencies
-        if: steps.gate.outputs.should_run == 'true'
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.should_run == 'true'
         run: pip install -r requirements.txt
 
       - name: Configure git identity for the token-commit step
-        if: steps.gate.outputs.should_run == 'true'
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.should_run == 'true'
         run: |
           git config user.name "ai-news-pipeline bot"
           git config user.email "actions@users.noreply.github.com"
 
       - name: Run the daily brief
-        if: steps.gate.outputs.should_run == 'true'
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.should_run == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
