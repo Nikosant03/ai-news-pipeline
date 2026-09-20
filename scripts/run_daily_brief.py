@@ -13,7 +13,6 @@ from pathlib import Path
 
 from scripts import generate_brief, publish_feed, publish_release, render_audio, token_state
 from scripts.graph import mail_folder, onedrive
-from scripts.token_state import TokenPersistError
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_REPO = "Nikosant03/daily-ai-brief-feed"
@@ -31,8 +30,12 @@ def run(today: str | None = None) -> int:
 
     try:
         access_token = token_state.refresh_and_persist_token()
-    except TokenPersistError as exc:
-        print(f"FATAL: {exc}", file=sys.stderr)
+    except Exception as exc:
+        # Broadened from `except TokenPersistError` — that left a bare RuntimeError
+        # (malformed Microsoft response), a KeyError (unset env var), or a network
+        # error to propagate uncaught, breaking the run(...) -> int contract this
+        # function promises everywhere else.
+        print(f"FATAL: token refresh/persist failed: {exc}", file=sys.stderr)
         return 1
 
     try:
@@ -50,6 +53,15 @@ def run(today: str | None = None) -> int:
     try:
         voice = os.environ.get("EDGE_TTS_VOICE", "en-US-AndrewNeural")
         render_audio.render_audio(brief["audio_txt"], audio_path, voice=voice)
+        if not audio_path.exists():
+            # edge-tts has a documented failure mode of returning normally without
+            # producing a usable file. Without this check that silent no-op would
+            # be indistinguishable from success: nothing gets appended to
+            # `failures`, and every `if audio_path.exists():` branch below just
+            # skips quietly — the run could exit 0 with no banner and no failure
+            # email, violating the design spec's §9 requirement that any
+            # component failure produces a non-zero exit.
+            raise RuntimeError("audio render produced no output file")
     except Exception as exc:
         failures.append(f"audio render failed: {exc}")
 
@@ -73,29 +85,49 @@ def run(today: str | None = None) -> int:
         except Exception as exc:
             failures.append(f"OneDrive upload of audio failed: {exc}")
 
+    # Lookup and post are split into their own try/except blocks — sharing one
+    # meant a lookup failure got reported as "mail message creation failed",
+    # even though no message was ever attempted.
+    folder_id = None
     try:
         folder_id = mail_folder.find_folder_id(MAIL_FOLDER_NAME, token=access_token)
-        if folder_id is None:
-            failures.append(f"mail folder '{MAIL_FOLDER_NAME}' not found")
-        else:
+    except Exception as exc:
+        failures.append(f"mail folder lookup failed: {exc}")
+
+    if folder_id is not None:
+        try:
             body = mail_folder.with_failure_banner(brief["brief_md"], failures)
             mail_folder.post_message(folder_id, f"AI Brief — {today}", body, token=access_token)
-    except Exception as exc:
-        failures.append(f"mail message creation failed: {exc}")
+        except Exception as exc:
+            failures.append(f"mail message creation failed: {exc}")
+    elif not any(f.startswith("mail folder lookup failed") for f in failures):
+        failures.append(f"mail folder '{MAIL_FOLDER_NAME}' not found")
 
     if audio_path.exists():
-        try:
-            pat = os.environ["PUBLIC_REPO_PUSH_TOKEN"]
-            assets = publish_release.publish_episode(audio_path, today, token=pat, repo=PUBLIC_REPO)
-            xml = publish_feed.build_feed_xml(
-                assets,
-                feed_title="Daily AI Brief",
-                feed_link=f"https://{PUBLIC_REPO.split('/')[0]}.github.io/daily-ai-brief-feed/",
-            )
-            publish_feed.clone_repo(PUBLIC_REPO, token=pat, dest=PUBLIC_REPO_CLONE_PATH)
-            publish_feed.push_feed(xml, PUBLIC_REPO_CLONE_PATH)
-        except Exception as exc:
-            failures.append(f"episode/feed publish failed: {exc}")
+        # publish_episode (GitHub Release API), and build_feed_xml/clone_repo/push_feed
+        # (local git operations) fail for very different reasons — grouped into two
+        # try/excepts, not one, so the failure list names which step actually broke.
+        pat = os.environ.get("PUBLIC_REPO_PUSH_TOKEN")
+        if pat is None:
+            failures.append("release publish failed: PUBLIC_REPO_PUSH_TOKEN is not set")
+        else:
+            assets = None
+            try:
+                assets = publish_release.publish_episode(audio_path, today, token=pat, repo=PUBLIC_REPO)
+            except Exception as exc:
+                failures.append(f"release publish failed: {exc}")
+
+            if assets is not None:
+                try:
+                    xml = publish_feed.build_feed_xml(
+                        assets,
+                        feed_title="Daily AI Brief",
+                        feed_link=f"https://{PUBLIC_REPO.split('/')[0]}.github.io/daily-ai-brief-feed/",
+                    )
+                    publish_feed.clone_repo(PUBLIC_REPO, token=pat, dest=PUBLIC_REPO_CLONE_PATH)
+                    publish_feed.push_feed(xml, PUBLIC_REPO_CLONE_PATH)
+                except Exception as exc:
+                    failures.append(f"feed clone/push failed: {exc}")
 
     if failures:
         print("FAILURES THIS RUN:", file=sys.stderr)

@@ -1,4 +1,7 @@
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
+
+import scripts.run_daily_brief as run_daily_brief_module
 from scripts.run_daily_brief import run
 
 
@@ -8,8 +11,23 @@ def _fake_render_audio(text, output_path, voice, synthesizer=None):
     output_path.write_bytes(b"fake mp3 bytes")
 
 
-def test_run_returns_zero_when_everything_succeeds(monkeypatch):
+def _use_isolated_tempdir(monkeypatch, tmp_path):
+    """run_daily_brief builds audio_path (and PUBLIC_REPO_CLONE_PATH) off
+    tempfile.gettempdir(). Two tests sharing that real OS temp dir with the same
+    `today` value would let one test's leftover file satisfy the other's
+    audio_path.exists() check regardless of what its own render_audio call did —
+    an order-dependent coupling. Redirecting run_daily_brief's own `tempfile`
+    name (not the global tempfile module) to pytest's per-test tmp_path removes
+    the sharing entirely: every test gets its own directory, cleaned up by
+    pytest, regardless of run order."""
+    monkeypatch.setattr(
+        run_daily_brief_module, "tempfile", SimpleNamespace(gettempdir=lambda: str(tmp_path))
+    )
+
+
+def test_run_returns_zero_when_everything_succeeds(monkeypatch, tmp_path):
     monkeypatch.setenv("PUBLIC_REPO_PUSH_TOKEN", "fake-pat")
+    _use_isolated_tempdir(monkeypatch, tmp_path)
     with patch("scripts.run_daily_brief.token_state.refresh_and_persist_token", return_value="access-token"), \
          patch("scripts.run_daily_brief.generate_brief.generate_brief", return_value={
              "brief_md": "# Brief", "brief_json": "{}", "audio_txt": "spoken text"
@@ -28,7 +46,8 @@ def test_run_returns_zero_when_everything_succeeds(monkeypatch):
     mock_push.assert_called_once()
 
 
-def test_run_returns_nonzero_when_a_component_fails_but_still_posts_banner():
+def test_run_returns_nonzero_when_a_component_fails_but_still_posts_banner(monkeypatch, tmp_path):
+    _use_isolated_tempdir(monkeypatch, tmp_path)
     with patch("scripts.run_daily_brief.token_state.refresh_and_persist_token", return_value="access-token"), \
          patch("scripts.run_daily_brief.generate_brief.generate_brief", return_value={
              "brief_md": "# Brief", "brief_json": "{}", "audio_txt": "spoken text"
