@@ -44,22 +44,46 @@ def build_feed_xml(assets: list[dict], feed_title: str, feed_link: str) -> str:
 """
 
 
+def _run_git(args: list[str], error_message: str) -> None:
+    """Run a git subprocess call, raising a sanitized error on failure.
+
+    subprocess.CalledProcessError's string form includes the full argv it was given —
+    for `git clone` that argv embeds the raw PAT in the clone URL. A bare `except
+    Exception as exc: print(str(exc))` upstream (Task 16's orchestrator) would then
+    print the token in cleartext. GitHub Actions masks known secrets in its own log
+    output, but that is a platform backstop, not something this code should depend on
+    — a local run, a different CI, or a future refactor has no such masking. So on
+    failure we swallow the original exception (`from None` — its traceback also
+    carries the argv) and raise a message-only error instead. Every git call in this
+    module goes through this helper, not just `clone`, because a future change to how
+    the remote is configured (e.g. an explicit push URL) could put the token back into
+    some other call's argv without this file being touched again.
+    """
+    try:
+        subprocess.run(args, check=True)
+    except subprocess.CalledProcessError:
+        raise RuntimeError(error_message) from None
+
+
 def clone_repo(repo: str, token: str, dest: Path) -> None:
     """Fresh clone every run — the runner is ephemeral, dest never pre-exists."""
     url = f"https://x-access-token:{token}@github.com/{repo}.git"
-    subprocess.run(["git", "clone", "--depth", "1", url, str(dest)], check=True)
-    subprocess.run(["git", "-C", str(dest), "config", "user.name", "ai-news-pipeline bot"], check=True)
-    subprocess.run(
+    _run_git(["git", "clone", "--depth", "1", url, str(dest)], "git clone failed")
+    _run_git(
+        ["git", "-C", str(dest), "config", "user.name", "ai-news-pipeline bot"],
+        "git config user.name failed",
+    )
+    _run_git(
         ["git", "-C", str(dest), "config", "user.email", "actions@users.noreply.github.com"],
-        check=True,
+        "git config user.email failed",
     )
 
 
 def push_feed(xml_content: str, repo_path: Path) -> None:
     (repo_path / "feed.xml").write_text(xml_content, encoding="utf-8")
-    subprocess.run(["git", "-C", str(repo_path), "add", "feed.xml"], check=True)
-    subprocess.run(
+    _run_git(["git", "-C", str(repo_path), "add", "feed.xml"], "git add failed")
+    _run_git(
         ["git", "-C", str(repo_path), "commit", "-m", "chore: update feed.xml"],
-        check=True,
+        "git commit failed",
     )
-    subprocess.run(["git", "-C", str(repo_path), "push"], check=True)
+    _run_git(["git", "-C", str(repo_path), "push"], "git push failed")
