@@ -49,13 +49,15 @@ def _default_post_form(url: str, fields: dict) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _default_committer(ciphertext: bytes) -> None:
+def _default_committer(ciphertext: bytes, state_path: Path = STATE_PATH) -> None:
     import subprocess
 
     # The caller (refresh_and_persist_token) has already written `ciphertext`
     # to state_path before invoking the committer — this just stages, commits
-    # and pushes the file that is already on disk.
-    subprocess.run(["git", "add", str(STATE_PATH)], check=True)
+    # and pushes the file that is already on disk. `state_path` is bound to
+    # whatever path refresh_and_persist_token was actually called with (see
+    # the closure built there), never assumed to be the module-level default.
+    subprocess.run(["git", "add", str(state_path)], check=True)
     subprocess.run(
         ["git", "commit", "-m", "chore: rotate Microsoft refresh token"], check=True
     )
@@ -88,13 +90,26 @@ def refresh_and_persist_token(
 
     new_ciphertext = encrypt_token(payload["refresh_token"], key)
 
-    # Write the new refresh token to disk first (persist-first): even if the
-    # git commit below fails, the encrypted file on disk already holds the
-    # new token rather than the stale one.
-    state_path.write_bytes(new_ciphertext)
+    # If the caller left `committer` as the default, bind it to the actual
+    # `state_path` this call was given — never the module-level STATE_PATH —
+    # so a custom state_path + default committer can never stage/commit the
+    # wrong file. A caller-supplied committer (e.g. in tests) is used as-is
+    # and still only ever receives the ciphertext.
+    committer_fn = committer
+    if committer_fn is _default_committer:
+        committer_fn = lambda ciphertext: _default_committer(
+            ciphertext, state_path=state_path
+        )
 
+    # Persist-first: writing to disk and committing to git are both part of
+    # "persisting" the new token, so both are wrapped in the same try/except.
+    # Any failure in either step — a bad disk write or a failed git commit —
+    # must raise TokenPersistError, never a raw OSError/PermissionError, so a
+    # caller catching TokenPersistError specifically (per the design spec's
+    # documented recovery path) never misses a persistence failure.
     try:
-        committer(new_ciphertext)
+        state_path.write_bytes(new_ciphertext)
+        committer_fn(new_ciphertext)
     except Exception as exc:
         raise TokenPersistError(
             "Token refreshed but could not be persisted — do not re-run "
