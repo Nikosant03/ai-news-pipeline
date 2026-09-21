@@ -41,7 +41,7 @@ def test_stage_pending_episode_writes_and_commits_mp3(tmp_path):
     called_args = [call[0][0] for call in mock_run.call_args_list]
     assert ["git", "-C", str(repo_path), "add", "pending/2026-09-21.mp3"] in called_args
     assert any(args[:4] == ["git", "-C", str(repo_path), "commit"] for args in called_args)
-    assert ["git", "-C", str(repo_path), "push"] in called_args
+    assert ["git", "-C", str(repo_path), "push", "origin", "HEAD:main"] in called_args
 
 
 def test_stage_pending_episode_failure_does_not_leak_token_in_exception(tmp_path):

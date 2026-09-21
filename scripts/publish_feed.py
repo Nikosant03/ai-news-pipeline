@@ -56,7 +56,13 @@ def stage_pending_episode(mp3_path: Path, date: str, repo_path: Path) -> None:
     """Commit the day's mp3 to pending/<date>.mp3 in the already-cloned repo
     and push. The push (to a path matching the workflow's `paths` trigger) is
     what fires publish-episode.yml, which uploads the asset, prunes anything
-    aged out past the 30-episode window, and rebuilds feed.xml."""
+    aged out past the 30-episode window, and rebuilds feed.xml.
+
+    Pushes with an explicit `HEAD:main` refspec, not a bare `git push` --
+    confirmed 2026-09-21 that a bare push from inside a Claude Code cloud
+    routine lands on a new `claude/*` branch instead of main (same fix
+    token_state.py already needed for the same reason; see its comment).
+    A commit that never reaches main never fires the workflow."""
     dest = repo_path / "pending" / f"{date}.mp3"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(mp3_path.read_bytes())
@@ -65,4 +71,4 @@ def stage_pending_episode(mp3_path: Path, date: str, repo_path: Path) -> None:
         ["git", "-C", str(repo_path), "commit", "-m", f"chore: stage {date} episode"],
         "git commit failed",
     )
-    _run_git(["git", "-C", str(repo_path), "push"], "git push failed")
+    _run_git(["git", "-C", str(repo_path), "push", "origin", "HEAD:main"], "git push failed")
