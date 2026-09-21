@@ -61,7 +61,16 @@ def _default_committer(ciphertext: bytes, state_path: Path = STATE_PATH) -> None
     subprocess.run(
         ["git", "commit", "-m", "chore: rotate Microsoft refresh token"], check=True
     )
-    subprocess.run(["git", "push"], check=True)
+    # Push straight to origin/main by ref, not a plain `git push` — each
+    # routine run starts from a fresh clone on its own throwaway branch with
+    # no upstream tracking, so a plain push either fails outright (no
+    # upstream) or, once one is set, strands the rotated token on that
+    # abandoned branch. Every session reads state/ms_refresh_token.enc from
+    # main on its next clone, and Microsoft invalidates the previous refresh
+    # token once it's used, so the rotated token MUST land on main every time
+    # or the next run's decrypt succeeds but the refresh call fails with
+    # invalid_grant.
+    subprocess.run(["git", "push", "origin", "HEAD:main"], check=True)
 
 
 def refresh_and_persist_token(
