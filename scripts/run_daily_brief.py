@@ -17,7 +17,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from scripts import publish_feed, publish_release, render_audio, token_state
+from scripts import publish_feed, render_audio, token_state
 from scripts.graph import mail_folder, onedrive
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -125,30 +125,20 @@ def run(today: str | None = None, output_dir: Path | None = None) -> int:
         failures.append(f"mail folder '{MAIL_FOLDER_NAME}' not found")
 
     if audio_path.exists():
-        # publish_episode (GitHub Release API), and build_feed_xml/clone_repo/push_feed
-        # (local git operations) fail for very different reasons — grouped into two
-        # try/excepts, not one, so the failure list names which step actually broke.
+        # Staging (a git push) rather than a direct GitHub Release API call --
+        # the sandbox's egress proxy blocks binary POST bodies to
+        # uploads.github.com (see publish_feed.py's module docstring). The
+        # actual release upload and feed.xml rebuild happen in
+        # daily-ai-brief-feed's own publish-episode.yml, triggered by this push.
         pat = os.environ.get("PUBLIC_REPO_PUSH_TOKEN")
         if pat is None:
-            failures.append("release publish failed: PUBLIC_REPO_PUSH_TOKEN is not set")
+            failures.append("episode staging failed: PUBLIC_REPO_PUSH_TOKEN is not set")
         else:
-            assets = None
             try:
-                assets = publish_release.publish_episode(audio_path, today, token=pat, repo=PUBLIC_REPO)
+                publish_feed.clone_repo(PUBLIC_REPO, token=pat, dest=PUBLIC_REPO_CLONE_PATH)
+                publish_feed.stage_pending_episode(audio_path, today, PUBLIC_REPO_CLONE_PATH)
             except Exception as exc:
-                failures.append(f"release publish failed: {exc}")
-
-            if assets is not None:
-                try:
-                    xml = publish_feed.build_feed_xml(
-                        assets,
-                        feed_title="Daily AI Brief",
-                        feed_link=f"https://{PUBLIC_REPO.split('/')[0]}.github.io/daily-ai-brief-feed/",
-                    )
-                    publish_feed.clone_repo(PUBLIC_REPO, token=pat, dest=PUBLIC_REPO_CLONE_PATH)
-                    publish_feed.push_feed(xml, PUBLIC_REPO_CLONE_PATH)
-                except Exception as exc:
-                    failures.append(f"feed clone/push failed: {exc}")
+                failures.append(f"episode staging failed: {exc}")
 
     if failures:
         print("FAILURES THIS RUN:", file=sys.stderr)

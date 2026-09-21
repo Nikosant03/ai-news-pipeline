@@ -27,14 +27,12 @@ def test_run_returns_zero_when_everything_succeeds(monkeypatch, tmp_path):
          patch("scripts.run_daily_brief.onedrive.upload_file", return_value={"id": "f1"}), \
          patch("scripts.run_daily_brief.mail_folder.find_folder_id", return_value="folder-1"), \
          patch("scripts.run_daily_brief.mail_folder.post_message", return_value={"id": "m1"}), \
-         patch("scripts.run_daily_brief.publish_release.publish_episode", return_value=[]), \
-         patch("scripts.run_daily_brief.publish_feed.build_feed_xml", return_value="<rss></rss>"), \
          patch("scripts.run_daily_brief.publish_feed.clone_repo") as mock_clone, \
-         patch("scripts.run_daily_brief.publish_feed.push_feed") as mock_push:
+         patch("scripts.run_daily_brief.publish_feed.stage_pending_episode") as mock_stage:
         exit_code = run(today="2026-09-20", output_dir=output_dir)
     assert exit_code == 0
     mock_clone.assert_called_once()
-    mock_push.assert_called_once()
+    mock_stage.assert_called_once()
 
 
 def test_run_returns_nonzero_when_a_component_fails_but_still_posts_banner(monkeypatch, tmp_path):
@@ -45,9 +43,8 @@ def test_run_returns_nonzero_when_a_component_fails_but_still_posts_banner(monke
          patch("scripts.run_daily_brief.onedrive.upload_file", return_value={"id": "f1"}), \
          patch("scripts.run_daily_brief.mail_folder.find_folder_id", return_value="folder-1"), \
          patch("scripts.run_daily_brief.mail_folder.post_message", return_value={"id": "m1"}) as mock_post, \
-         patch("scripts.run_daily_brief.publish_release.publish_episode", return_value=[]), \
-         patch("scripts.run_daily_brief.publish_feed.build_feed_xml", return_value="<rss></rss>"), \
-         patch("scripts.run_daily_brief.publish_feed.push_feed"):
+         patch("scripts.run_daily_brief.publish_feed.clone_repo"), \
+         patch("scripts.run_daily_brief.publish_feed.stage_pending_episode"):
         exit_code = run(today="2026-09-20", output_dir=output_dir)
     assert exit_code != 0
     # post_message's signature is (folder_id, subject, body, token=...), so the
