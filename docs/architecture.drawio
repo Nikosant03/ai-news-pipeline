@@ -1,0 +1,156 @@
+<mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="2300" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="n_title" value="Daily AI News Pipeline &amp;#8212; Πλήρης Αρχιτεκτονική" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=#222222;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="1480" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_legendBg" value="Υπόμνημα / Legend" style="swimlane;startSize=26;fillColor=#FFFFFF;strokeColor=#999999;fontSize=13;fontStyle=1;html=1;align=center;" vertex="1" parent="1">
+      <mxGeometry x="1560" y="20" width="320" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="n_leg1" value="Anthropic (cloud sandbox)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8DFF5;strokeColor=#7C5CBF;fontColor=#3D2A5C;fontSize=11;" vertex="1" parent="n_legendBg">
+      <mxGeometry x="10" y="32" width="300" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="n_leg2" value="Microsoft (Entra ID / Graph API)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCEEFB;strokeColor=#2E7FC1;fontColor=#1A3E5C;fontSize=11;" vertex="1" parent="n_legendBg">
+      <mxGeometry x="10" y="70" width="300" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="n_leg3" value="GitHub (repos / Actions / Releases / Pages)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DFF5E3;strokeColor=#3E9B5A;fontColor=#1F4A2C;fontSize=11;" vertex="1" parent="n_legendBg">
+      <mxGeometry x="10" y="108" width="300" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="n_leg4" value="Σημείωση / πλευρικό callout (χωρίς βέλος)" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fillColor=#FFF4D6;strokeColor=#C9A227;fontColor=#5C4A0A;fontSize=11;" vertex="1" parent="n_legendBg">
+      <mxGeometry x="10" y="146" width="300" height="40" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_r1" value="&lt;b&gt;Routine: ai-news-daily-0400utc&lt;/b&gt;&lt;br&gt;Καλοκαιρινό ωράριο (EEST)&lt;br&gt;Ανεξάρτητη πυροδότηση, κάθε εργάσιμη" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#E8DFF5;strokeColor=#7C5CBF;fontColor=#3D2A5C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="110" width="360" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="n_r2" value="&lt;b&gt;Routine: ai-news-daily-0500utc&lt;/b&gt;&lt;br&gt;Χειμερινό ωράριο (EET)&lt;br&gt;Ανεξάρτητη πυροδότηση, κάθε εργάσιμη" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#E8DFF5;strokeColor=#7C5CBF;fontColor=#3D2A5C;" vertex="1" parent="1">
+      <mxGeometry x="870" y="110" width="360" height="100" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_setupNote" value="&lt;b&gt;Ρύθμιση πριν τρέξει οτιδήποτε&lt;/b&gt;&lt;br&gt;&amp;#8226; 4 secrets ως πραγματικές environment variables, ρυθμισμένα ΣΤΟ ΙΔΙΟ ΤΟ ROUTINE (claude.ai/code/routines UI) &amp;#8212; ποτέ στο κείμενο του prompt, ποτέ σε log: MS_TENANT_ID, MS_CLIENT_ID, STATE_ENCRYPTION_KEY, PUBLIC_REPO_PUSH_TOKEN&lt;br&gt;&amp;#8226; Φρέσκο, εφήμερο sandbox κλωνοποιεί: Nikosant03/ai-news-pipeline (κώδικας) + Nikosant03/daily-ai-brief-feed (μόνο ανάγνωση εδώ)&lt;br&gt;&amp;#8226; Μόνο ένα από τα δύο Routines συνεχίζει κάθε μέρα (βλ. Time Gate) &amp;#8212; σχεδιασμένο για DST, όχι διπλό τρέξιμο" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#FFF4D6;strokeColor=#C9A227;fontColor=#5C4A0A;" vertex="1" parent="1">
+      <mxGeometry x="1400" y="250" width="480" height="210" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_gate" value="&lt;b&gt;ΒΗΜΑ 1 &amp;#8212; Time Gate&lt;/b&gt;&lt;br&gt;scripts/time_gate.py&lt;br&gt;UTC &amp;#8594; ώρα Κύπρου (zoneinfo, αυτόματο EEST/EET)&lt;br&gt;Ακριβώς 7πμ;" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fillColor=#E8DFF5;strokeColor=#7C5CBF;fontColor=#3D2A5C;" vertex="1" parent="1">
+      <mxGeometry x="650" y="250" width="400" height="130" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_stop" value="&lt;b&gt;ΣΤΟΠ&lt;/b&gt;&lt;br&gt;Τίποτα δεν γράφεται ή στέλνεται.&lt;br&gt;Φυσιολογικό, καθημερινό &amp;#8212; απλά δεν ήταν η ώρα αυτού του Routine." style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#F5F5F5;strokeColor=#888888;fontColor=#444444;" vertex="1" parent="1">
+      <mxGeometry x="1130" y="280" width="250" height="90" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step2" value="&lt;b&gt;ΒΗΜΑ 2 &amp;#8212; Έρευνα &amp;amp; Συγγραφή&lt;/b&gt; (κάνει το ίδιο το Claude, όχι script)&lt;br&gt;Διαβάζει: prompts/system-prompt.md&lt;br&gt;Web search / web fetch: Anthropic newsroom, OpenAI news, Hacker News, Simon Willison, κ.ά.&lt;br&gt;Γράφει: output/brief.md, output/brief.json, output/audio.txt (gitignored, ποτέ commit)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#E8DFF5;strokeColor=#7C5CBF;fontColor=#3D2A5C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="420" width="760" height="120" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_noapi" value="&lt;b&gt;⚠ Κανένα Anthropic API key, πουθενά&lt;/b&gt;&lt;br&gt;Η χρέωση γίνεται μέσω της υπάρχουσας συνδρομής Claude (Pro/Max) του Nick, μέσω του ίδιου του Routine &amp;#8212; ΟΧΙ per-token κλήσεις API." style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#FFF4D6;strokeColor=#C9A227;fontColor=#5C4A0A;" vertex="1" parent="1">
+      <mxGeometry x="1400" y="490" width="480" height="120" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step3" value="&lt;b&gt;ΒΗΜΑ 3 &amp;#8212; Ανανέωση Microsoft token&lt;/b&gt;&lt;br&gt;scripts/token_state.py &amp;#8212; ΠΡΩΤΟ και ΜΟΙΡΑΙΟ αν αποτύχει (όλα σταματούν)&lt;br&gt;Αποκρυπτογραφεί state/ms_refresh_token.enc (Fernet, κλειδί: STATE_ENCRYPTION_KEY)&lt;br&gt;POST login.microsoftonline.com/{tenant}/oauth2/v2.0/token &amp;#8212; Microsoft Entra ID / OAuth2&lt;br&gt;Νέο token &amp;#8594; git push origin HEAD:main στο ai-news-pipeline (public repo, άχρηστο χωρίς το κλειδί)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#DCEEFB;strokeColor=#2E7FC1;fontColor=#1A3E5C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="570" width="760" height="150" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step4" value="&lt;b&gt;ΒΗΜΑ 4 &amp;#8212; Μετατροπή σε ομιλία&lt;/b&gt;&lt;br&gt;scripts/render_audio.py&lt;br&gt;audio.txt &amp;#8594; {ημερομηνία}-audio.mp3, μέσω edge-tts (δωρεάν Microsoft TTS, χωρίς key)&lt;br&gt;Μη μοιραίο αν αποτύχει &amp;#8212; το υπόλοιπο τρέξιμο συνεχίζει" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#E8DFF5;strokeColor=#7C5CBF;fontColor=#3D2A5C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="750" width="760" height="100" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step5" value="&lt;b&gt;ΒΗΜΑ 5 &amp;#8212; Ανέβασμα στο OneDrive&lt;/b&gt;&lt;br&gt;scripts/graph/onedrive.py&lt;br&gt;PUT /me/drive/items/.../content &amp;#8212; Microsoft Graph API&lt;br&gt;Φάκελος: /DAILY_AI_NEWS/{έτος}/{μήνας}/ &amp;#8212; brief.md, brief.json, audio.txt, mp3" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#DCEEFB;strokeColor=#2E7FC1;fontColor=#1A3E5C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="880" width="760" height="110" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step6" value="&lt;b&gt;ΒΗΜΑ 6 &amp;#8212; Μήνυμα στο mail&lt;/b&gt;&lt;br&gt;scripts/graph/mail_folder.py&lt;br&gt;POST /me/mailFolders/{id}/messages &amp;#8212; Microsoft Graph API&lt;br&gt;Δημιουργείται μήνυμα ΜΕΣΑ στον φάκελο DAILY_AI_NEWS &amp;#8212; όχι αποστολή email" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#DCEEFB;strokeColor=#2E7FC1;fontColor=#1A3E5C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="1020" width="760" height="110" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_outcomeB" value="&lt;b&gt;✓ Ο Nick το βλέπει εδώ, ήδη&lt;/b&gt;&lt;br&gt;OneDrive: τα 4 αρχεία στον προσωπικό του λογαριασμό&lt;br&gt;Outlook: το μήνυμα μέσα στον φάκελο DAILY_AI_NEWS&lt;br&gt;Ανεξάρτητο από ό,τι ακολουθεί παρακάτω (podcast)" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#FFF4D6;strokeColor=#C9A227;fontColor=#5C4A0A;" vertex="1" parent="1">
+      <mxGeometry x="1400" y="880" width="480" height="250" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step7" value="&lt;b&gt;ΒΗΜΑ 7 &amp;#8212; Στάδιο podcast (git push)&lt;/b&gt;&lt;br&gt;scripts/publish_feed.py&lt;br&gt;Κλωνοποιεί ΞΑΝΑ (read-write αυτή τη φορά) το daily-ai-brief-feed&lt;br&gt;Αντιγράφει το mp3 σε pending/{ημερομηνία}.mp3, git push origin HEAD:main" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#DFF5E3;strokeColor=#3E9B5A;fontColor=#1F4A2C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="1160" width="760" height="120" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_handoff" value="&lt;b&gt;⚠ ΟΡΙΟ ΑΡΧΙΤΕΚΤΟΝΙΚΗΣ &amp;#8212; Anthropic &amp;#8594; GitHub&lt;/b&gt;&lt;br&gt;Το sandbox της Anthropic ΔΕΝ μπορεί να ανεβάσει δυαδικά αρχεία απευθείας στο GitHub Releases API &amp;#8212; το δικό του proxy δικτύου το μπλοκάρει.&lt;br&gt;Γι' αυτό η παράδοση γίνεται με απλό git push, και ΕΝΑ ΕΝΤΕΛΩΣ ΞΕΧΩΡΙΣΤΟ ΣΥΣΤΗΜΑ (η υποδομή του GitHub) ολοκληρώνει τη δουλειά." style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;align=left;verticalAlign=top;spacing=10;fillColor=#FCE4D6;strokeColor=#D97B3D;fontColor=#6B3410;" vertex="1" parent="1">
+      <mxGeometry x="380" y="1310" width="940" height="120" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step8" value="&lt;b&gt;ΒΗΜΑ 8 &amp;#8212; GitHub Actions&lt;/b&gt; (τρέχει στο GitHub, όχι στην Anthropic)&lt;br&gt;Trigger: push στο daily-ai-brief-feed που αγγίζει pending/**.mp3&lt;br&gt;.github/workflows/publish-episode.yml &amp;#8594; scripts/publish_and_build_feed.py (μέσω gh CLI, authN: GITHUB_TOKEN)&lt;br&gt;&amp;#8226; Βεβαιώνει ότι υπάρχει το GitHub Release &amp;quot;episodes&amp;quot;&lt;br&gt;&amp;#8226; Ανεβάζει το mp3 ως release asset&lt;br&gt;&amp;#8226; Διαγράφει ό,τι είναι πέρα από τα 30 πιο πρόσφατα (κυλιόμενο παράθυρο)&lt;br&gt;&amp;#8226; Ξαναχτίζει το feed.xml (RSS 2.0) από ό,τι απομένει&lt;br&gt;&amp;#8226; Commit feed.xml + άδειο pending/ πίσω στο main" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#DFF5E3;strokeColor=#3E9B5A;fontColor=#1F4A2C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="1450" width="760" height="190" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_step9" value="&lt;b&gt;ΒΗΜΑ 9 &amp;#8212; GitHub Pages σερβίρει το feed&lt;/b&gt;&lt;br&gt;index.html + feed.xml στο nikosant03.github.io/daily-ai-brief-feed/" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#DFF5E3;strokeColor=#3E9B5A;fontColor=#1F4A2C;" vertex="1" parent="1">
+      <mxGeometry x="470" y="1670" width="760" height="80" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_outcomeA" value="&lt;b&gt;✓ Τελικός καταναλωτής&lt;/b&gt;&lt;br&gt;Οποιαδήποτε εφαρμογή podcast, συνδρομημένη στο feed URL, βλέπει το νέο επεισόδιο (το enclosure δείχνει στο GitHub Release asset)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#F5F5F5;strokeColor=#888888;fontColor=#333333;" vertex="1" parent="1">
+      <mxGeometry x="470" y="1780" width="760" height="90" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_refHeader" value="Αναφορά / Reference" style="text;html=1;fontSize=18;fontStyle=1;align=left;verticalAlign=middle;fontColor=#222222;" vertex="1" parent="1">
+      <mxGeometry x="40" y="1920" width="500" height="30" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_colA" value="&lt;b&gt;Αρχεία &amp;#8212; Nikosant03/ai-news-pipeline&lt;/b&gt;&lt;br&gt;&amp;#8226; scripts/time_gate.py&lt;br&gt;&amp;#8226; prompts/system-prompt.md&lt;br&gt;&amp;#8226; scripts/run_daily_brief.py (entrypoint)&lt;br&gt;&amp;#8226; scripts/token_state.py&lt;br&gt;&amp;#8226; scripts/render_audio.py&lt;br&gt;&amp;#8226; scripts/graph/_common.py&lt;br&gt;&amp;#8226; scripts/graph/onedrive.py&lt;br&gt;&amp;#8226; scripts/graph/mail_folder.py&lt;br&gt;&amp;#8226; scripts/publish_feed.py&lt;br&gt;&amp;#8226; state/ms_refresh_token.enc" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#F8F8F8;strokeColor=#999999;fontColor=#222222;" vertex="1" parent="1">
+      <mxGeometry x="40" y="1960" width="590" height="300" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_colB" value="&lt;b&gt;Αρχεία &amp;#8212; Nikosant03/daily-ai-brief-feed&lt;/b&gt;&lt;br&gt;&amp;#8226; .github/workflows/publish-episode.yml&lt;br&gt;&amp;#8226; scripts/publish_and_build_feed.py&lt;br&gt;&amp;#8226; feed.xml&lt;br&gt;&amp;#8226; index.html (σερβίρεται από GitHub Pages)&lt;br&gt;&amp;#8226; pending/ (προσωρινός φάκελος σταδίου, άδειος εκτός τρεξίματος)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#F8F8F8;strokeColor=#999999;fontColor=#222222;" vertex="1" parent="1">
+      <mxGeometry x="660" y="1960" width="590" height="300" as="geometry" />
+    </mxCell>
+
+    <mxCell id="n_colC" value="&lt;b&gt;Πλατφόρμες / Υπηρεσίες που εμπλέκονται&lt;/b&gt;&lt;br&gt;&amp;#8226; Anthropic Claude Code Routines &amp;#8212; scheduler + agent, τιμολόγηση μέσω της υπάρχουσας συνδρομής Claude&lt;br&gt;&amp;#8226; Microsoft Entra ID (OAuth2) &amp;#8212; login.microsoftonline.com&lt;br&gt;&amp;#8226; Microsoft Graph API v1.0 &amp;#8212; graph.microsoft.com (OneDrive + Outlook, λογαριασμός n.antoniou@autrix.cy)&lt;br&gt;&amp;#8226; edge-tts &amp;#8212; δωρεάν text-to-speech της Microsoft, χωρίς κλειδί&lt;br&gt;&amp;#8226; GitHub &amp;#8212; 4 ξεχωριστές λειτουργίες: Git (push), Actions, Releases, Pages" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=top;spacing=8;fillColor=#F8F8F8;strokeColor=#999999;fontColor=#222222;" vertex="1" parent="1">
+      <mxGeometry x="1280" y="1960" width="600" height="300" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e_r1gate" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;strokeColor=#555555;" edge="1" parent="1" source="n_r1" target="n_gate">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_r2gate" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;strokeColor=#555555;" edge="1" parent="1" source="n_r2" target="n_gate">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_gatestop" value="ΟΧΙ" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;fontStyle=1;strokeColor=#888888;" edge="1" parent="1" source="n_gate" target="n_stop">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_gatestep2" value="ΝΑΙ" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;fontSize=11;fontStyle=1;strokeColor=#3E9B5A;strokeWidth=2;" edge="1" parent="1" source="n_gate" target="n_step2">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_23" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#555555;strokeWidth=2;" edge="1" parent="1" source="n_step2" target="n_step3">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_34" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#555555;strokeWidth=2;" edge="1" parent="1" source="n_step3" target="n_step4">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_45" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#555555;strokeWidth=2;" edge="1" parent="1" source="n_step4" target="n_step5">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_56" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#555555;strokeWidth=2;" edge="1" parent="1" source="n_step5" target="n_step6">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_67" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#555555;strokeWidth=2;" edge="1" parent="1" source="n_step6" target="n_step7">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_7handoff" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#D97B3D;strokeWidth=2;" edge="1" parent="1" source="n_step7" target="n_handoff">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_handoff8" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#D97B3D;strokeWidth=2;" edge="1" parent="1" source="n_handoff" target="n_step8">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_89" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#3E9B5A;strokeWidth=2;" edge="1" parent="1" source="n_step8" target="n_step9">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_9A" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#3E9B5A;strokeWidth=2;" edge="1" parent="1" source="n_step9" target="n_outcomeA">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_5B" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;dashed=1;strokeColor=#C9A227;" edge="1" parent="1" source="n_step5" target="n_outcomeB">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e_6B" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;dashed=1;strokeColor=#C9A227;" edge="1" parent="1" source="n_step6" target="n_outcomeB">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>
