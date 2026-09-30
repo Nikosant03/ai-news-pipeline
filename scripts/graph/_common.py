@@ -41,6 +41,19 @@ def graph_post(path: str, payload: dict, token: str) -> dict:
         raise GraphError(f"POST {path} -> HTTP {err.code}: {err.read().decode('utf-8', 'replace')}") from err
 
 
+def graph_patch(path: str, payload: dict, token: str) -> dict:
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(f"{GRAPH}{path}", data=data, method="PATCH")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw = resp.read()
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as err:
+        raise GraphError(f"PATCH {path} -> HTTP {err.code}: {err.read().decode('utf-8', 'replace')}") from err
+
+
 def graph_put_bytes(path: str, data: bytes, token: str, content_type: str) -> dict:
     req = urllib.request.Request(f"{GRAPH}{path}", data=data, method="PUT")
     req.add_header("Authorization", f"Bearer {token}")
