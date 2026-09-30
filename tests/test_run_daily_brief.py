@@ -77,3 +77,36 @@ def test_run_fatal_when_output_files_missing(tmp_path):
         exit_code = run(today="2026-09-20", output_dir=tmp_path / "output")
     assert exit_code != 0
     mock_lookup.assert_not_called()
+
+
+def _render_empty_mp3(text, output_path, voice, synthesizer=None):
+    """edge-tts's real silent-failure mode, reproduced: return normally having
+    created the file and written nothing into it. This is what happened on
+    2026-09-28 and it went undetected all the way to the public podcast feed."""
+    output_path.write_bytes(b"")
+
+
+def test_empty_mp3_is_a_failure_and_never_reaches_onedrive_or_the_feed(monkeypatch, tmp_path):
+    monkeypatch.setenv("PUBLIC_REPO_PUSH_TOKEN", "fake-pat")
+    output_dir = tmp_path / "output"
+    _write_output_files(output_dir)
+    with patch("scripts.run_daily_brief.token_state.refresh_and_persist_token", return_value="access-token"), \
+         patch("scripts.run_daily_brief.render_audio.render_audio", side_effect=_render_empty_mp3), \
+         patch("scripts.run_daily_brief.onedrive.upload_file", return_value={"id": "f1"}) as mock_upload, \
+         patch("scripts.run_daily_brief.mail_folder.find_folder_id", return_value="folder-1"), \
+         patch("scripts.run_daily_brief.mail_folder.post_message", return_value={"id": "m1"}) as mock_post, \
+         patch("scripts.run_daily_brief.publish_feed.clone_repo") as mock_clone, \
+         patch("scripts.run_daily_brief.publish_feed.stage_pending_episode") as mock_stage:
+        exit_code = run(today="2026-09-28", output_dir=output_dir)
+
+    assert exit_code == 1, "a 0-byte render must be reported as a failure, not passed off as success"
+
+    uploaded_names = [call.args[1] for call in mock_upload.call_args_list]
+    assert "2026-09-28-audio.mp3" not in uploaded_names, "an empty mp3 must never reach OneDrive"
+    assert "2026-09-28-brief.md" in uploaded_names, "the text brief must still be delivered"
+
+    mock_clone.assert_not_called()
+    mock_stage.assert_not_called()
+
+    banner_body = mock_post.call_args.args[2]
+    assert "audio render" in banner_body, "the mail message must carry the failure banner"

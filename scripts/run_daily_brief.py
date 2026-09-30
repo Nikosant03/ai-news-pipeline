@@ -28,6 +28,20 @@ MAIL_FOLDER_NAME = "DAILY_AI_NEWS"
 ONEDRIVE_ROOT = "/DAILY_AI_NEWS"
 
 
+def _usable_audio(path: Path) -> bool:
+    """True only for an mp3 that actually has audio in it.
+
+    Existence was never proof of success. edge-tts can return normally having
+    created the output file and written nothing into it, and on 2026-09-28 it
+    did: a 0-byte mp3 passed every `exists()` check below, was uploaded to
+    OneDrive, was staged to the feed repo, and then killed that repo's publish
+    workflow -- which aborted on the first bad file, so the good 2026-09-30
+    episode queued behind it never published either. The podcast feed sat on
+    2026-09-25 for three days and nothing in this script had recorded a
+    failure. Size is the cheap check that closes it."""
+    return path.exists() and path.stat().st_size > 0
+
+
 def _read_brief(output_dir: Path) -> dict:
     """Read the three files the routine already wrote to output/. Raises with
     a clear message naming which file is missing, rather than a bare
@@ -74,15 +88,20 @@ def run(today: str | None = None, output_dir: Path | None = None) -> int:
     try:
         voice = os.environ.get("EDGE_TTS_VOICE", "en-US-AndrewNeural")
         render_audio.render_audio(brief["audio_txt"], audio_path, voice=voice)
-        if not audio_path.exists():
-            # edge-tts has a documented failure mode of returning normally without
-            # producing a usable file. Without this check that silent no-op would
-            # be indistinguishable from success: nothing gets appended to
-            # `failures`, and every `if audio_path.exists():` branch below just
-            # skips quietly — the run could exit 0 with no banner and no failure
-            # email, violating the design spec's §9 requirement that any
-            # component failure produces a non-zero exit.
-            raise RuntimeError("audio render produced no output file")
+        if not _usable_audio(audio_path):
+            # edge-tts has a documented failure mode of returning normally
+            # without producing a usable file. Without this check that silent
+            # no-op would be indistinguishable from success: nothing gets
+            # appended to `failures`, and every `if _usable_audio(audio_path):`
+            # branch below just skips quietly — the run could exit 0 with no
+            # banner and no failure email, violating the design spec's §9
+            # requirement that any component failure produces a non-zero exit.
+            # Checking existence alone was not enough; see _usable_audio.
+            raise RuntimeError(
+                f"audio render produced no usable output file "
+                f"(exists={audio_path.exists()}, "
+                f"bytes={audio_path.stat().st_size if audio_path.exists() else 0})"
+            )
     except Exception as exc:
         failures.append(f"audio render failed: {exc}")
 
@@ -98,7 +117,7 @@ def run(today: str | None = None, output_dir: Path | None = None) -> int:
         except Exception as exc:
             failures.append(f"OneDrive upload of {filename} failed: {exc}")
 
-    if audio_path.exists():
+    if _usable_audio(audio_path):
         try:
             onedrive.upload_file(
                 onedrive_folder, f"{today}-audio.mp3", audio_path.read_bytes(), "audio/mpeg", token=access_token
@@ -124,7 +143,7 @@ def run(today: str | None = None, output_dir: Path | None = None) -> int:
     elif not any(f.startswith("mail folder lookup failed") for f in failures):
         failures.append(f"mail folder '{MAIL_FOLDER_NAME}' not found")
 
-    if audio_path.exists():
+    if _usable_audio(audio_path):
         # Staging (a git push) rather than a direct GitHub Release API call --
         # the sandbox's egress proxy blocks binary POST bodies to
         # uploads.github.com (see publish_feed.py's module docstring). The
