@@ -28,13 +28,20 @@ The reader is Greek. His English is good but not native, and unfamiliar vocabula
 - **Spell out company names and who they are** when they aren't household names. "Crusoe, a company that builds data centres for AI." Big ones — OpenAI, Google, Microsoft — need no introduction.
 - **Avoid idioms and figures of speech.** They're the hardest part of a foreign language and they add nothing.
 
-Three outputs every run, described in `references/output-formats.md`:
+Five outputs every run. The first three are described in `references/output-formats.md`:
 
 1. `YYYY-MM-DD-brief.md` — the bulletin, organised in sections, for reading.
 2. `YYYY-MM-DD-brief.json` — the same stories as structured data, for downstream automation.
 3. `YYYY-MM-DD-audio.txt` — the same stories rewritten as a spoken bulletin, for text-to-speech.
+4. `YYYY-MM-DD-brief-el.md` — the Greek translation of output 1.
+5. `YYYY-MM-DD-audio-el.txt` — the Greek translation of output 3.
 
-All three cover identical stories. They differ only in shape.
+All five cover identical stories. They differ only in shape and in language.
+
+In an automated run these are written to the output directory as `brief.md`,
+`brief.json`, `audio.txt`, `brief-el.md` and `audio-el.txt`; the pipeline adds
+the date when it files them. **Write all five. The delivery script reports a
+missing Greek edition as a failure** — it will not quietly skip it.
 
 ## Step 1 — Set the window
 
@@ -72,7 +79,7 @@ Leave out:
 
 **Accuracy is the whole product.** Report only what you actually read. Never invent or adjust a version number, price, benchmark figure, funding amount or date. Attribute vendor claims to the vendor rather than stating them as fact. If a story appears in only one outlet and you couldn't reach a primary source, mark it `unconfirmed`. Distinguish announced, in preview, and generally available — they are different facts. Every story carries its source and the source's publication date.
 
-## Step 4 — Write the three files
+## Step 4 — Write the three English files
 
 Follow `references/output-formats.md` exactly; the JSON schema in particular is a contract that downstream automation depends on.
 
@@ -92,7 +99,7 @@ The audio script runs as **one continuous bulletin in order of importance**, not
 
 **Target length for the audio: about ten minutes**, which is roughly 1,400 to 1,600 words at normal speaking pace. That is a real target, not a ceiling to avoid. If the day's news is thin, spend the space on background rather than padding: the history behind a story, who the companies are, what happened last time, what the disputed numbers actually measure. If there is genuinely not enough to say, a shorter bulletin is fine — but reach for more context before reaching for the end.
 
-Language: **English**, for all three files.
+Language: **English**, for the first three files. Greek for the last two.
 
 ## The "Building with AI" section
 
@@ -113,7 +120,42 @@ Reject on sight: anonymous quotes, round numbers with no source, "I made $10k in
 
 Some days there will be nothing that clears this bar. Leave the section out rather than filling it with weak material — a section that appears only when it has something real is worth more than one that appears daily.
 
-## Step 5 — Deliver
+## Step 5 — Translate into Greek
+
+Write the English bulletin first and finish it. Then translate, working from
+the finished English, so the two editions cannot drift apart.
+
+`brief-el.md` mirrors `brief.md` — same sections, same order, same headings
+translated. `audio-el.txt` mirrors `audio.txt` — one continuous spoken
+bulletin, plain paragraphs, no markdown, nothing a speech engine would read
+out as punctuation.
+
+**This is a translation, not a retelling.** Every story, every number and every
+source that is in the English is in the Greek. Nothing added, nothing dropped,
+no opinion that was not already there.
+
+**Write the Greek a Greek news bulletin would use.** Not a word-for-word
+rendering of English sentence shapes. If a sentence reads as translated, it is
+wrong — say it the way it would be said on the radio.
+
+**Leave names in Latin script.** OpenAI, ChatGPT, Claude, Anthropic, Google
+DeepMind, GPT-6 Astra — product and company names are never transliterated.
+Greek readers know them in their own form, and the speech engine pronounces
+them correctly.
+
+**Explain technical terms the same way the English does**, giving the Greek
+term with the English in brackets the first time it appears that day — for
+example "πράκτορας (agent)". Do this every day; assume nothing carried over.
+
+**Spell numbers out as words in `audio-el.txt`**, exactly as in the English
+spoken file — "τέσσερις χιλιάδες", not "4000". Dates and prices too. The
+speech engine reads digits inconsistently in Greek.
+
+**Nick uses the Greek text to draft social posts.** That is not your job and
+you must not write posts — but it is why the Greek has to stand on its own as
+readable prose, not as a crib for the English.
+
+## Step 6 — Deliver
 
 `references/delivery.md` covers this. In an interactive session: show the bulletin in chat and save the files. In an automated run: write the three files to the output directory and let the pipeline handle storage, mail and audio rendering — and don't ask questions, because nobody is there to answer. If a source fails, note it at the foot of the bulletin and carry on. A partial bulletin delivered on time is worth more than a complete one that never arrives.
 

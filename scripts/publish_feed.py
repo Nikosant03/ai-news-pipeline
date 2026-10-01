@@ -52,23 +52,43 @@ def clone_repo(repo: str, token: str, dest: Path) -> None:
     )
 
 
-def stage_pending_episode(mp3_path: Path, date: str, repo_path: Path) -> None:
-    """Commit the day's mp3 to pending/<date>.mp3 in the already-cloned repo
-    and push. The push (to a path matching the workflow's `paths` trigger) is
-    what fires publish-episode.yml, which uploads the asset, prunes anything
-    aged out past the 30-episode window, and rebuilds feed.xml.
+def stage_pending_episodes(episodes: dict[str, Path], repo_path: Path) -> None:
+    """Commit every episode of the day to pending/ in ONE commit, and push once.
+
+    `episodes` maps the asset name to the local file: {"2026-10-01": <english
+    mp3>, "2026-10-01-el": <greek mp3>}.
+
+    One commit for both languages, deliberately. Two separate pushes would
+    fire the publish workflow twice, and the second push would be made from a
+    clone taken before the first run's own "chore: publish episode" bot commit
+    landed on main -- a non-fast-forward rejection that would silently lose the
+    second episode. One commit cannot race itself.
 
     Pushes with an explicit `HEAD:main` refspec, not a bare `git push` --
     confirmed 2026-09-21 that a bare push from inside a Claude Code cloud
     routine lands on a new `claude/*` branch instead of main (same fix
     token_state.py already needed for the same reason; see its comment).
     A commit that never reaches main never fires the workflow."""
-    dest = repo_path / "pending" / f"{date}.mp3"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(mp3_path.read_bytes())
-    _run_git(["git", "-C", str(repo_path), "add", f"pending/{date}.mp3"], "git add failed")
+    if not episodes:
+        raise ValueError("no episodes to stage")
+
+    names = sorted(episodes)
+    for name in names:
+        dest = repo_path / "pending" / f"{name}.mp3"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(episodes[name].read_bytes())
+        _run_git(
+            ["git", "-C", str(repo_path), "add", f"pending/{name}.mp3"],
+            "git add failed",
+        )
+
     _run_git(
-        ["git", "-C", str(repo_path), "commit", "-m", f"chore: stage {date} episode"],
+        ["git", "-C", str(repo_path), "commit", "-m", f"chore: stage {', '.join(names)}"],
         "git commit failed",
     )
     _run_git(["git", "-C", str(repo_path), "push", "origin", "HEAD:main"], "git push failed")
+
+
+def stage_pending_episode(mp3_path: Path, date: str, repo_path: Path) -> None:
+    """Single-episode convenience wrapper over stage_pending_episodes."""
+    stage_pending_episodes({date: mp3_path}, repo_path)
