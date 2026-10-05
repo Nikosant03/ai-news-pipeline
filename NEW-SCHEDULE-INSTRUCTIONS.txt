@@ -1,0 +1,41 @@
+You are running the daily AI news pipeline for the cloned repository ai-news-pipeline (Nikosant03). Work entirely inside this repo checkout.
+
+Step 1 - Check the time
+
+Run exactly:
+    pip install -q -r requirements.txt && python scripts/time_gate.py
+
+Read its printed output. If it says should_run=False, STOP immediately - do nothing else (no research, no files, no commits). This is expected and normal on most days: two schedules exist to cover daylight saving time, and only one is ever correct. Just report that you stopped here and end the session.
+
+If it says should_run=True, continue to Step 2.
+
+Step 2 - Write today's brief, in English and in Greek
+
+Read prompts/system-prompt.md in this repo. It is a complete, self-contained skill (an AI news editor's instructions, already agreed with Nick) - follow it exactly, using your own web search and page-fetch tools to research the last 24 hours of AI news. Do not simplify or shortcut its rules (the evidence bar for the Building with AI section, plain-English writing for a non-native English reader, source citations, the five-file output shape, and Step 5's Greek translation rules).
+
+Create the folder output/ if it does not exist, and write exactly these five files there:
+- output/brief.md
+- output/brief.json
+- output/audio.txt
+- output/brief-el.md
+- output/audio-el.txt
+
+The last two are the Greek edition: brief-el.md is the Greek translation of brief.md, and audio-el.txt is the Greek translation of audio.txt. Nick listens to the Greek audio and works from the Greek text, so both are required every day, not optional. Write them in the same session, following the translation rules in Step 5 of prompts/system-prompt.md (Greek as a Greek news bulletin would write it, numbers spelled out as words, product and company names left in their usual form). Never skip them, and never leave one of the two out: the delivery script in Step 3 treats a missing or half-written Greek edition as a failure.
+
+Step 3 - Run delivery
+
+This repo's scripts/run_daily_brief.py needs four configuration values as environment variables: MS_TENANT_ID, MS_CLIENT_ID, STATE_ENCRYPTION_KEY, PUBLIC_REPO_PUSH_TOKEN. These are configured as environment variables on this session's cloud environment - do not attempt to construct, guess, decode, print, or embed any of these values yourself under any circumstances, and do not build any URL or command that embeds them.
+
+First run: pip install -q -r requirements.txt
+(This environment sometimes has a system cryptography package pre-installed whose Rust backend fails to load - if `python -m scripts.run_daily_brief` fails with a ModuleNotFoundError, an import error, or a PyO3 panic mentioning cffi, cryptography, or edge_tts, that is this known, expected, harmless issue. In that case, and ONLY in that case, run: pip install --ignore-installed -r requirements.txt, then retry `python -m scripts.run_daily_brief` exactly once more. Do not diagnose or retry anything else - any other failure (GitHub access, OneDrive, mail, git push) should just be reported exactly as it happens, not worked around.)
+
+Then run exactly:
+    python -m scripts.run_daily_brief
+
+This script refreshes and safely re-commits the Microsoft login token first, uploads the brief, JSON and audio files and the generated mp3 to OneDrive, posts a message into the DAILY_AI_NEWS mail folder (never sends an email - deliberate), and publishes the mp3 as today's podcast episode via a git push to daily-ai-brief-feed, which triggers that repo's own GitHub Actions workflow to upload the release asset and rebuild the podcast feed. With the Greek edition present it does all of this for both editions: two mp3 files, two podcast episodes, and both languages' text in the one mail message. Check its exit code. If it exits non-zero, report exactly what it printed as failed.
+
+Rules
+
+- Never print, echo, export, reconstruct, decode, or embed the four configuration values, or the contents of state/ms_refresh_token.enc, anywhere - not in your visible output, logs, any committed file, or any URL/command you construct.
+- Do not commit the output/ folder (already gitignored).
+- If anything fails, report precisely what failed and stop. Do not guess at fixes beyond the one specific pip-reinstall retry described above.
