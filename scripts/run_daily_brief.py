@@ -17,8 +17,19 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from scripts import publish_feed, render_audio, token_state
+from scripts import bootstrap, publish_feed, render_audio
 from scripts.graph import mail_folder, onedrive
+
+try:
+    from scripts import token_state
+except (KeyboardInterrupt, SystemExit):
+    raise
+except BaseException:
+    # token_state imports cryptography, which on 2026-10-06 panicked inside its
+    # Rust bindings and took this whole module down with it before run() could
+    # even start. A broken crypto library must not cost the podcast, so the
+    # import is allowed to fail here and is repaired in _microsoft_access_token.
+    token_state = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_REPO = "Nikosant03/daily-ai-brief-feed"
@@ -110,20 +121,49 @@ def _render(text: str, path: Path, voice: str, label: str, failures: list[str]) 
     return path
 
 
+def _microsoft_access_token(failures: list[str]) -> str | None:
+    """Refresh the Microsoft login token, or record why it could not happen.
+
+    A token failure used to end the run on the spot (`return 1`, before the
+    brief was even read). That was the design spec's §6 rule — token refresh
+    first and unconditional — and on 2026-10-06 it cost Nick the whole day's
+    delivery: `cryptography` was unusable in the sandbox, importing it killed
+    the process, and no episode reached the feed even though publishing one
+    needs nothing from Microsoft at all.
+
+    So this is a deliberate deviation from §6. OneDrive and the mail message do
+    need this token and are skipped without it; the audio render and the
+    podcast push do not, and the podcast is the part Nick listens to. Skipping
+    a day's refresh is safe: Microsoft only invalidates the stored refresh
+    token once it has actually been used, so an unrefreshed one still works
+    tomorrow. The failure is recorded either way, so the run still exits
+    non-zero and still says what broke.
+    """
+    global token_state
+    if token_state is None:
+        try:
+            bootstrap.ensure_cryptography()
+            from scripts import token_state as repaired
+        except Exception as exc:
+            failures.append(f"the Microsoft half of the run could not start: {exc}")
+            return None
+        token_state = repaired
+    try:
+        return token_state.refresh_and_persist_token()
+    except Exception as exc:
+        # Deliberately broad: a bare RuntimeError (malformed Microsoft reply), a
+        # KeyError (unset environment variable) and a network error all have to
+        # land here, not propagate out of run(...).
+        failures.append(f"token refresh/persist failed: {exc}")
+        return None
+
+
 def run(today: str | None = None, output_dir: Path | None = None) -> int:
     today = today or date.today().isoformat()
     output_dir = output_dir or OUTPUT_DIR
     failures: list[str] = []
 
-    try:
-        access_token = token_state.refresh_and_persist_token()
-    except Exception as exc:
-        # Broadened from `except TokenPersistError` — that left a bare RuntimeError
-        # (malformed Microsoft response), a KeyError (unset env var), or a network
-        # error to propagate uncaught, breaking the run(...) -> int contract this
-        # function promises everywhere else.
-        print(f"FATAL: token refresh/persist failed: {exc}", file=sys.stderr)
-        return 1
+    access_token = _microsoft_access_token(failures)
 
     try:
         brief = _read_brief(output_dir)
@@ -172,46 +212,52 @@ def run(today: str | None = None, output_dir: Path | None = None) -> int:
             (f"{today}-brief-el.md", greek["brief_md"].encode("utf-8"), "text/markdown"),
             (f"{today}-audio-el.txt", greek["audio_txt"].encode("utf-8"), "text/plain"),
         ]
-    for filename, content, content_type in text_files:
-        try:
-            onedrive.upload_file(onedrive_folder, filename, content, content_type, token=access_token)
-        except Exception as exc:
-            failures.append(f"OneDrive upload of {filename} failed: {exc}")
+    if access_token is None:
+        failures.append(
+            "OneDrive and the mail folder were skipped this run — there is no "
+            "Microsoft access token to reach them with"
+        )
+    else:
+        for filename, content, content_type in text_files:
+            try:
+                onedrive.upload_file(onedrive_folder, filename, content, content_type, token=access_token)
+            except Exception as exc:
+                failures.append(f"OneDrive upload of {filename} failed: {exc}")
 
-    for name, path in ((f"{today}-audio.mp3", audio_path), (f"{today}-audio-el.mp3", audio_path_el)):
-        if path is None:
-            continue
-        try:
-            onedrive.upload_file(
-                onedrive_folder, name, path.read_bytes(), "audio/mpeg", token=access_token
-            )
-        except Exception as exc:
-            failures.append(f"OneDrive upload of {name} failed: {exc}")
+        for name, path in ((f"{today}-audio.mp3", audio_path), (f"{today}-audio-el.mp3", audio_path_el)):
+            if path is None:
+                continue
+            try:
+                onedrive.upload_file(
+                    onedrive_folder, name, path.read_bytes(), "audio/mpeg", token=access_token
+                )
+            except Exception as exc:
+                failures.append(f"OneDrive upload of {name} failed: {exc}")
 
-    # Lookup and post are split into their own try/except blocks — sharing one
-    # meant a lookup failure got reported as "mail message creation failed",
-    # even though no message was ever attempted.
-    folder_id = None
-    try:
-        folder_id = mail_folder.find_folder_id(MAIL_FOLDER_NAME, token=access_token)
-    except Exception as exc:
-        failures.append(f"mail folder lookup failed: {exc}")
-
-    if folder_id is not None:
+        # Lookup and post are split into their own try/except blocks — sharing one
+        # meant a lookup failure got reported as "mail message creation failed",
+        # even though no message was ever attempted.
+        folder_id = None
         try:
-            # Both editions in the one message. A second message would undo the
-            # one-per-day rule that 2026-10-01 put in, and Nick reads the Greek
-            # text to draft posts from, so it needs to be where he already looks.
-            full_body = brief["brief_md"]
-            if greek is not None:
-                separator = "\n\n" + "=" * 60 + "\n\n"
-                full_body += separator + greek["brief_md"]
-            body = mail_folder.with_failure_banner(full_body, failures)
-            mail_folder.post_message(folder_id, f"AI Brief — {today}", body, token=access_token)
+            folder_id = mail_folder.find_folder_id(MAIL_FOLDER_NAME, token=access_token)
         except Exception as exc:
-            failures.append(f"mail message creation failed: {exc}")
-    elif not any(f.startswith("mail folder lookup failed") for f in failures):
-        failures.append(f"mail folder '{MAIL_FOLDER_NAME}' not found")
+            failures.append(f"mail folder lookup failed: {exc}")
+
+        if folder_id is not None:
+            try:
+                # Both editions in the one message. A second message would undo the
+                # one-per-day rule that 2026-10-01 put in, and Nick reads the Greek
+                # text to draft posts from, so it needs to be where he already looks.
+                full_body = brief["brief_md"]
+                if greek is not None:
+                    separator = "\n\n" + "=" * 60 + "\n\n"
+                    full_body += separator + greek["brief_md"]
+                body = mail_folder.with_failure_banner(full_body, failures)
+                mail_folder.post_message(folder_id, f"AI Brief — {today}", body, token=access_token)
+            except Exception as exc:
+                failures.append(f"mail message creation failed: {exc}")
+        elif not any(f.startswith("mail folder lookup failed") for f in failures):
+            failures.append(f"mail folder '{MAIL_FOLDER_NAME}' not found")
 
     episodes = {}
     if audio_path is not None:

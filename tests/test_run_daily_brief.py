@@ -58,18 +58,36 @@ def test_run_returns_nonzero_when_a_component_fails_but_still_posts_banner(monke
     assert "tts down" in posted_body or "⚠" in posted_body
 
 
-def test_run_stops_immediately_when_token_persist_fails(tmp_path):
+def test_a_dead_microsoft_side_no_longer_costs_the_podcast(monkeypatch, tmp_path):
+    """A token failure is reported, and the episode still goes out.
+
+    This replaces the old stop-on-the-spot rule (design spec §6). On 2026-10-06
+    `cryptography` was unusable in the sandbox, the token step died, and the
+    run ended there — so no episode reached the feed either, even though
+    staging one needs nothing but a git push. OneDrive and the mail folder are
+    the only parts that genuinely need the token, and only they are skipped.
+    """
     from scripts.token_state import TokenPersistError
 
+    monkeypatch.setenv("PUBLIC_REPO_PUSH_TOKEN", "fake-pat")
+    output_dir = tmp_path / "output"
+    _write_output_files(output_dir)
     with patch(
         "scripts.run_daily_brief.token_state.refresh_and_persist_token",
         side_effect=TokenPersistError("could not persist"),
-    ), patch("scripts.run_daily_brief.mail_folder.find_folder_id") as mock_lookup:
-        # output/ is deliberately left empty — a token failure must stop before
-        # anything ever tries to read it.
-        exit_code = run(today="2026-09-20", output_dir=tmp_path / "output")
-    assert exit_code != 0
+    ), \
+         patch("scripts.run_daily_brief.render_audio.render_audio", side_effect=_fake_render_audio), \
+         patch("scripts.run_daily_brief.onedrive.upload_file") as mock_upload, \
+         patch("scripts.run_daily_brief.mail_folder.find_folder_id") as mock_lookup, \
+         patch("scripts.run_daily_brief.publish_feed.clone_repo"), \
+         patch("scripts.run_daily_brief.publish_feed.stage_pending_episodes") as mock_stage:
+        exit_code = run(today="2026-10-06", output_dir=output_dir)
+
+    assert exit_code != 0, "the token failure must still be reported"
+    mock_upload.assert_not_called()
     mock_lookup.assert_not_called()
+    mock_stage.assert_called_once()
+    assert set(mock_stage.call_args[0][0]) == {"2026-10-06", "2026-10-06-el"}
 
 
 def test_run_fatal_when_output_files_missing(tmp_path):
